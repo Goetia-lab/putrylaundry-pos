@@ -1,17 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Kas{% endblock %}
 {% block header %}💰 Kas / Transaksi{% endblock %}
-
 {% block content %}
-<div class="row g-2 mb-3">
-    <div class="col-6">
-        <a href="/kas/outlet" class="btn btn-outline-info w-100">🏪 Kas Outlet</a>
-    </div>
-    <div class="col-6">
-        <a href="/kas/rlaundry" class="btn btn-outline-info w-100">🏠 Kas R.Laundry</a>
-    </div>
-</div>
-
 <form id="kasForm" class="card mb-3" onsubmit="return submitKas(event)">
     <div class="card-body">
         <div class="mb-2">
@@ -35,85 +25,19 @@
                 <input type="number" class="form-control" id="kkredit" placeholder="Rp" min="0" step="500">
             </div>
         </div>
-        <button type="submit" class="btn btn-primary btn-lg w-100" id="btn-kas">
-            <i class="bi bi-save"></i> Simpan Transaksi
-        </button>
+        <button type="submit" class="btn btn-primary btn-lg w-100" id="btn-kas"><i class="bi bi-save"></i> Simpan Transaksi</button>
     </div>
 </form>
-
 <div class="card">
     <div class="card-header"><span><i class="bi bi-clock-history"></i> Riwayat Kas</span></div>
-    <div class="card-body p-0" id="kas-history">
-        <div class="text-center py-3 text-secondary">Memuat...</div>
-    </div>
+    <div class="card-body p-0" id="kas-history"><div class="text-center py-3 text-secondary">Memuat...</div></div>
 </div>
 {% endblock %}
-
 {% block scripts %}
 <script>
-    async function submitKas(e) {
-        e.preventDefault();
-        const btn = document.getElementById('btn-kas');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
-        
-        try {
-            const resp = await fetch('/api/kas', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    sheet: document.getElementById('ksheet').value,
-                    keterangan: document.getElementById('kketerangan').value,
-                    debit: document.getElementById('kdebit').value || '',
-                    kredit: document.getElementById('kkredit').value || ''
-                })
-            });
-            const result = await resp.json();
-            if (result.ok) {
-                document.getElementById('kasForm').reset();
-                if (navigator.vibrate) navigator.vibrate(30);
-                showToast('✅ Transaksi tersimpan!', 'success');
-                loadKasHistory();
-            }
-        } catch(e) {
-            showToast('❌ Gagal menyimpan', 'danger');
-        }
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-save"></i> Simpan Transaksi';
-    }
-
-    async function loadKasHistory() {
-        try {
-            const [outlet, rl] = await Promise.all([
-                fetch('/data/kas/Kas%20Outlet').then(r=>r.json()),
-                fetch('/data/kas/Kas%20R.Laundry').then(r=>r.json())
-            ]);
-            const all = [...outlet.slice(-5), ...rl.slice(-5)].sort((a,b) => b[0]-a[0]).slice(0,8);
-            const html = all.length ? all.map(r => `
-                <div class="list-group-item border-bottom border-secondary d-flex justify-content-between">
-                    <div>
-                        <small class="text-secondary">${r[1]||'-'}</small>
-                        <div>${r[2]||'-'}</div>
-                    </div>
-                    <div class="text-end">
-                        ${r[3] ? `<div class="text-success">+Rp${parseInt(r[3]).toLocaleString('id-ID')}</div>` : ''}
-                        ${r[4] ? `<div class="text-danger">-Rp${parseInt(r[4]).toLocaleString('id-ID')}</div>` : ''}
-                    </div>
-                </div>
-            `).join('') : '<div class="text-center py-3 text-secondary">Belum ada transaksi</div>';
-            document.getElementById('kas-history').innerHTML = '<div class="list-group list-group-flush">'+html+'</div>';
-        } catch(e) {
-            document.getElementById('kas-history').innerHTML = '<div class="text-center py-3 text-danger">Gagal memuat</div>';
-        }
-    }
-    loadKasHistory();
-
-    function showToast(msg, type) {
-        const t = document.createElement('div');
-        t.className = 'position-fixed bottom-0 start-50 translate-middle-x p-3'; t.style.zIndex = 9999;
-        t.innerHTML = `<div class="toast align-items-center text-bg-${type} border-0 show"><div class="d-flex"><div class="toast-body">${msg}</div></div></div>`;
-        document.body.appendChild(t);
-        setTimeout(() => t.remove(), 2000);
-    }
+async function submitKas(e){e.preventDefault();const t=document.getElementById('btn-kas');t.disabled=!0,t.innerHTML='<span class="spinner-border spinner-border-sm"></span> Menyimpan...';try{const e=await fetch('/api/kas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sheet:document.getElementById('ksheet').value,keterangan:document.getElementById('kketerangan').value,debit:document.getElementById('kdebit').value||'',kredit:document.getElementById('kkredit').value||''})}),n=await e.json();n.ok&&(document.getElementById('kasForm').reset(),navigator.vibrate&&navigator.vibrate(30),showToast('✅ Tersimpan!','success'),loadKasHistory())}catch(e){showToast('❌ Gagal','danger')}t.disabled=!1,t.innerHTML='<i class="bi bi-save"></i> Simpan Transaksi'}
+async function loadKasHistory(){try{const[e,t]=await Promise.all([fetch('/data/kas/Kas%20Outlet').then(e=>e.json()),fetch('/data/kas/Kas%20R.Laundry').then(e=>e.json())]),n=[...e.slice(-5),...t.slice(-5)].sort((e,t)=>t[0]-e[0]).slice(0,8);document.getElementById('kas-history').innerHTML=n.length?'<div class="list-group list-group-flush">'+n.map(e=>`<div class="list-group-item border-bottom border-secondary d-flex justify-content-between"><div><small class="text-secondary">${e[1]||'-'}</small><div>${e[2]||'-'}</div></div><div class="text-end">${e[3]?`<div class="text-success">+Rp${parseInt(e[3]).toLocaleString('id-ID')}</div>`:''}${e[4]?`<div class="text-danger">-Rp${parseInt(e[4]).toLocaleString('id-ID')}</div>`:''}</div></div>`).join(''):'<div class="text-center py-3 text-secondary">Belum ada transaksi</div>'}catch(e){document.getElementById('kas-history').innerHTML='<div class="text-center py-3 text-danger">Gagal memuat</div>'}}
+loadKasHistory();
+function showToast(e,t){const n=document.createElement('div');n.className='position-fixed bottom-0 start-50 translate-middle-x p-3',n.style.zIndex=9999,n.innerHTML=`<div class="toast align-items-center text-bg-${t} border-0 show"><div class="d-flex"><div class="toast-body">${e}</div></div></div>`,document.body.appendChild(n),setTimeout(()=>n.remove(),2000)}
 </script>
 {% endblock %}
