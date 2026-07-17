@@ -8,9 +8,6 @@ app.secret_key = os.environ.get("SECRET_KEY", "putry-laundry-pos-key-2026")
 
 SHEET_ID = "1tz1uFlQi4KkIkqqnModjMj21qcvvxGf0KcuavD9U9bA"
 
-# Show errors on page for debugging
-app.config["PROPAGATE_EXCEPTIONS"] = False
-
 def get_gc():
     if os.environ.get("GAUTH_JSON"):
         info = json.loads(os.environ["GAUTH_JSON"])
@@ -20,10 +17,23 @@ def get_gc():
             tok_path = os.path.expanduser("~/Downloads/gsheets_token.json")
         with open(tok_path) as f:
             info = json.load(f)
-    creds = Credentials.from_authorized_user_info(info)
+    # Use the same scopes as token was created with
+    scopes = info.get("scopes", ["https://www.googleapis.com/auth/spreadsheets"])
+    creds = Credentials.from_authorized_user_info(info, scopes=scopes)
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
     return gspread.authorize(creds)
+
+@app.route("/debug")
+def debug():
+    try:
+        gc = get_gc()
+        sh = gc.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Dashboard")
+        vals = ws.get_all_values()
+        return f"<h3>✅ OK</h3><p>Sheet: {sh.title}<br>Dashboard rows: {len(vals)}</p><pre>{json.dumps(vals[:5], indent=2)}</pre>"
+    except Exception as e:
+        return f"<h3>❌ Error</h3><pre>{traceback.format_exc()}</pre>", 500
 
 def sh():
     return get_gc().open_by_key(SHEET_ID)
