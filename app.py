@@ -1,54 +1,41 @@
-"""Putry Laundry POS — Flask App"""
 import os, json, datetime, gspread
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
-from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "putry-laundry-pos-key-2026")
 
-# ── Google Sheets Connection ──
 SHEET_ID = "1tz1uFlQi4KkIkqqnModjMj21qcvvxGf0KcuavD9U9bA"
 
 def get_gc():
-    """Connect to Google Sheets using OAuth credentials"""
     if os.environ.get("GAUTH_JSON"):
-        # Production: from Render env var
         info = json.loads(os.environ["GAUTH_JSON"])
     else:
-        # Local dev: from token file
         tok_path = os.path.expanduser("~/AppData/Local/hermes/google_token.json")
         if not os.path.exists(tok_path):
             tok_path = os.path.expanduser("~/Downloads/gsheets_token.json")
         with open(tok_path) as f:
             info = json.load(f)
-    
     creds = Credentials.from_authorized_user_info(info, scopes=[
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ])
-    
-    # Auto-refresh if expired
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
-    
     return gspread.authorize(creds)
 
 def sh():
     gc = get_gc()
     return gc.open_by_key(SHEET_ID)
 
-# ── Helpers ──
 def next_row(ws):
-    """Find the next empty row in a sheet (col A = 'No')"""
     vals = ws.col_values(1)
-    for i, v in enumerate(vals[3:], start=4):  # skip title + headers
+    for i, v in enumerate(vals[3:], start=4):
         if not v.strip():
             return i
     return len(vals) + 1
 
-# ── Routes ──
 @app.route("/")
 def index():
     return redirect(url_for("dashboard"))
@@ -62,7 +49,7 @@ def dashboard():
 @app.route("/pos")
 def pos():
     ws = sh().worksheet("Pricelist")
-    pricelist = ws.get_all_values()[3:]  # skip header rows
+    pricelist = ws.get_all_values()[3:]
     pricelist = [r for r in pricelist if r[0].strip() and r[0].isdigit()]
     return render_template("pos.html", pricelist=pricelist)
 
@@ -79,9 +66,7 @@ def add_order():
     data = request.get_json()
     ws = sh().worksheet("Orderan")
     row = next_row(ws)
-    
     total = int(data.get("berat", 0)) * int(data.get("harga", 0))
-    
     ws.update(f"A{row}:L{row}", [[
         str(row - 3),
         data.get("tanggal", datetime.date.today().strftime("%d %b %Y")),
@@ -96,7 +81,6 @@ def add_order():
         data.get("bayar", "Cash"),
         data.get("catatan", "")
     ]], value_input_option="USER_ENTERED")
-    
     return jsonify({"ok": True, "row": row, "total": total})
 
 @app.route("/api/kas", methods=["POST"])
@@ -105,10 +89,8 @@ def add_kas():
     sheet_name = data.get("sheet", "Kas Outlet")
     ws = sh().worksheet(sheet_name)
     row = next_row(ws)
-    
-    debit = data.get("debit", "").replace(".","").replace(",","")
-    kredit = data.get("kredit", "").replace(".","").replace(",","")
-    
+    debit = str(data.get("debit", "")).replace(".","").replace(",","")
+    kredit = str(data.get("kredit", "")).replace(".","").replace(",","")
     ws.update(f"A{row}:E{row}", [[
         str(row - 3),
         data.get("tanggal", datetime.date.today().strftime("%d %b %Y")),
@@ -116,7 +98,6 @@ def add_kas():
         debit if debit else "",
         kredit if kredit else ""
     ]], value_input_option="USER_ENTERED")
-    
     return jsonify({"ok": True, "row": row})
 
 @app.route("/api/bukubesar", methods=["POST"])
@@ -124,10 +105,8 @@ def add_bukubesar():
     data = request.get_json()
     ws = sh().worksheet("Buku Besar")
     row = next_row(ws)
-    
     debit = str(data.get("debit", "")).replace(".","").replace(",","")
     kredit = str(data.get("kredit", "")).replace(".","").replace(",","")
-    
     ws.update(f"A{row}:F{row}", [[
         str(row - 3),
         data.get("tanggal", datetime.date.today().strftime("%d %b %Y")),
@@ -136,7 +115,6 @@ def add_bukubesar():
         kredit if kredit else "",
         ""
     ]], value_input_option="USER_ENTERED")
-    
     return jsonify({"ok": True, "row": row})
 
 @app.route("/data/orderan")
