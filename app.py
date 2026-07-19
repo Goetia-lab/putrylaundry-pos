@@ -177,6 +177,25 @@ def data_pelanggan():
         })
     return jsonify(sorted(p.values(), key=lambda x: x["total_bayar"], reverse=True))
 
+@app.route("/setup/tipe", methods=["POST"])
+def setup_tipe():
+    """One-time: set kolom Tipe di Pricelist berdasarkan nama layanan."""
+    ws = sheet("Pricelist")
+    data = ws.get_all_values()
+    tipe_map = {
+        "Cuci Kering": "KG", "Cuci Setrika": "KG", "Setrika Saja": "KG",
+        "Cuci Lipat": "KG", "Express 6 jam": "KG", "Super Express 3 jam": "KG",
+        "Selimut": "PCS", "Boneka Besar": "PCS", "Boneka Kecil": "PCS",
+        "Bed Cover Single": "PCS", "Bed Cover Queen": "PCS",
+        "Karpet": "M2"
+    }
+    updated = 0
+    for i, r in enumerate(data[3:], start=4):
+        if r[0] and r[0].strip().isdigit() and r[1].strip() in tipe_map:
+            ws.update(f"E{i}", tipe_map[r[1].strip()], value_input_option="USER_ENTERED")
+            updated += 1
+    return jsonify({"ok": True, "updated": updated})
+
 @app.route("/health")
 def health():
     try:
