@@ -29,6 +29,16 @@ def next_row(ws):
         if not v.strip(): return i
     return len(vals) + 1
 
+def next_nota(ws, prefix):
+    """Cari nomor nota terakhir untuk prefix A/B, return prefix+nomor_selanjutnya."""
+    vals = ws.col_values(3)
+    max_n = 0
+    for v in vals:
+        if v.startswith(prefix) and v[1:].isdigit():
+            n = int(v[1:])
+            if n > max_n: max_n = n
+    return prefix + str(max_n + 1)
+
 # ─── Routes ────────────────────────────────────────
 
 @app.route("/")
@@ -39,19 +49,19 @@ def index():
 def pos():
     ws = sheet("Pricelist")
     pricelist = [r for r in ws.get_all_values()[3:] if r[0].strip().isdigit()]
-    return render_template("pos.html", pricelist=pricelist, active="pos")
+    return render_template("pos.html", pricelist=pricelist)
 
 @app.route("/dashboard")
 def dashboard():
-    return render_template("dashboard.html", active="dash")
+    return render_template("dashboard.html")
 
 @app.route("/uang")
 def uang():
-    return render_template("uang.html", active="uang")
+    return render_template("uang.html")
 
 @app.route("/cari")
 def cari():
-    return render_template("cari.html", active="cari")
+    return render_template("cari.html")
 
 # ─── API ───────────────────────────────────────────
 
@@ -64,26 +74,36 @@ def add_order():
     harga = data.get("harga", "0")
     berat = data.get("berat", "0")
     total = int(berat or 0) * int(harga or 0)
-    tgl = datetime.date.today().strftime("%d %b %Y")
-    ws.update(f"A{row}:L{row}", [[
-        str(row-3), tgl, "", data.get("pelanggan",""), "",
-        layanan, berat, harga, str(total), "Proses", "Cash", ""
+    tgl = data.get("tgl_masuk", datetime.date.today().strftime("%d %b %Y"))
+    tgl_selesai = data.get("tgl_selesai", "")
+    nota_prefix = data.get("nota_prefix", "A")
+    nota = data.get("nota") or next_nota(ws, nota_prefix)
+    status = "Proses"
+    bayar = data.get("bayar", "Cash")
+    bayar_waktu = data.get("bayar_waktu", "Langsung")
+    ws.update(f"A{row}:O{row}", [[
+        str(row-3), tgl, nota,
+        data.get("pelanggan",""), data.get("no_hp",""),
+        layanan, berat, harga, str(total),
+        status, bayar, "",
+        tgl_selesai, data.get("non_kilo",""), bayar_waktu
     ]], value_input_option="USER_ENTERED")
-    return jsonify({"ok": True, "row": row, "total": total})
+    return jsonify({"ok": True, "row": row, "total": total, "nota": nota})
 
 @app.route("/api/order/<int:row>", methods=["PUT", "DELETE"])
 def edit_order(row):
     ws = sheet("Orderan")
     if request.method == "DELETE":
-        ws.update(f"A{row}:L{row}", [[""]*12], value_input_option="USER_ENTERED")
+        ws.update(f"A{row}:O{row}", [[""]*15], value_input_option="USER_ENTERED")
         return jsonify({"ok": True})
     data = request.get_json()
     total = int(data.get("berat",0)) * int(data.get("harga",0))
-    ws.update(f"A{row}:L{row}", [[
-        str(row-3), data.get("tanggal",""), data.get("nota",""),
+    ws.update(f"A{row}:O{row}", [[
+        str(row-3), data.get("tgl_masuk",""), data.get("nota",""),
         data.get("pelanggan",""), data.get("no_hp",""),
         data.get("layanan",""), data.get("berat","0"), data.get("harga","0"),
-        str(total), data.get("status","Proses"), data.get("bayar","Cash"), ""
+        str(total), data.get("status","Proses"), data.get("bayar","Cash"), "",
+        data.get("tgl_selesai",""), data.get("non_kilo",""), data.get("bayar_waktu","Langsung")
     ]], value_input_option="USER_ENTERED")
     return jsonify({"ok": True, "total": total})
 
@@ -121,7 +141,7 @@ def data_pelanggan():
         x["total_berat"] += float(r[6] or 0)
         x["total_bayar"] += int(r[8] or 0)
         if r[4] and not x["hp"]: x["hp"] = r[4]
-        x["orders"].append({"id":r[0],"tgl":r[1],"nota":r[2],"layanan":r[5],"berat":r[6],"harga":r[7],"total":r[8],"status":r[9],"bayar":r[10]})
+        x["orders"].append({"id":r[0],"tgl":r[1],"nota":r[2],"layanan":r[5],"berat":r[6],"harga":r[7],"total":r[8],"status":r[9],"bayar":r[10],"tgl_selesai":r[12] if len(r)>12 else "","non_kilo":r[13] if len(r)>13 else "","bayar_waktu":r[14] if len(r)>14 else ""})
     return jsonify(sorted(p.values(), key=lambda x: x["total_bayar"], reverse=True))
 
 @app.route("/health")
