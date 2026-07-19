@@ -3,36 +3,59 @@
 {% block content %}
 <form id="orderForm" class="card mb-3" onsubmit="return submitOrder(event)">
     <div class="card-body">
-        <!-- 1. Berat -->
+        <!-- Step 1: Pilih Layanan -->
         <div class="mb-2">
-            <label class="form-label small">1. Berat Cucian <small class="text-secondary">(kg)</small></label>
-            <div class="row g-2">
-                <div class="col-4"><input type="number" class="form-control form-control-lg" id="berat" step="0.5" min="0" placeholder="0" oninput="hitung()" required></div>
-                <div class="col-2"><button type="button" class="btn btn-outline-secondary w-100 h-100" onclick="setBerat(2)">2</button></div>
-                <div class="col-2"><button type="button" class="btn btn-outline-secondary w-100 h-100" onclick="setBerat(3)">3</button></div>
-                <div class="col-2"><button type="button" class="btn btn-outline-secondary w-100 h-100" onclick="setBerat(5)">5</button></div>
-                <div class="col-2"><button type="button" class="btn btn-outline-secondary w-100 h-100" onclick="setBerat(8)">8</button></div>
+            <label class="form-label small">1. Pilih Layanan</label>
+            <select class="form-select form-select-lg" id="layanan" onchange="pilihLayanan()" required>
+                <option value="">— Pilih —</option>
+                {% for p in pricelist %}
+                <option value="{{ p.nama }}" data-tipe="{{ p.tipe }}" data-harga="{{ p.harga }}">{{ p.nama }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Step 2: Input jumlah (berubah bentuk sesuai tipe) -->
+        <div class="mb-2" id="input-jumlah-wrapper">
+            <label class="form-label small">2. Jumlah</label>
+            <div id="input-kg">
+                <input type="number" class="form-control form-control-lg" id="jumlah" step="0.5" min="0" placeholder="Berat (kg)" oninput="hitung()" required>
+                <small class="text-secondary">Kiloan — timbang cucian</small>
+            </div>
+            <div id="input-pcs" class="d-none">
+                <input type="number" class="form-control form-control-lg" id="jumlah-pcs" min="1" placeholder="Jumlah item" oninput="hitung()" required>
+                <small class="text-secondary">Per item — hitung satuan</small>
+            </div>
+            <div id="input-m2" class="d-none">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <input type="number" class="form-control form-control-lg" id="m2-panjang" step="0.1" min="0" placeholder="Panjang (m)" oninput="hitung()" required>
+                    </div>
+                    <div class="col-6">
+                        <input type="number" class="form-control form-control-lg" id="m2-lebar" step="0.1" min="0" placeholder="Lebar (m)" oninput="hitung()" required>
+                    </div>
+                </div>
+                <small class="text-secondary">Karpet — ukur panjang × lebar (m²)</small>
             </div>
         </div>
 
-        <!-- 2. Non-kilo -->
+        <!-- Step 3: Non-Kilo -->
         <div class="mb-2">
-            <label class="form-label small">2. Barang Non-Kilo <small class="text-secondary">(opsional — selimut, karpet, bedcover dll)</small></label>
+            <label class="form-label small">3. Barang Non-Kilo <small class="text-secondary">(opsional — selimut, bedcover dll)</small></label>
             <input type="text" class="form-control" id="non_kilo" placeholder="Mis: Selimut 1, Karpet 2...">
         </div>
 
-        <!-- 3. Nama + No HP -->
+        <!-- Step 4: Nama + No HP -->
         <div class="mb-2">
-            <label class="form-label small">3. Pelanggan</label>
+            <label class="form-label small">4. Pelanggan</label>
             <div class="row g-2">
                 <div class="col-7"><input type="text" class="form-control form-control-lg" id="pelanggan" placeholder="Nama customer" required autofocus></div>
                 <div class="col-5"><input type="tel" class="form-control form-control-lg" id="no_hp" placeholder="No HP"></div>
             </div>
         </div>
 
-        <!-- 4. Tanggal -->
+        <!-- Step 5: Tanggal -->
         <div class="mb-2">
-            <label class="form-label small">4. Tanggal</label>
+            <label class="form-label small">5. Tanggal</label>
             <div class="row g-2">
                 <div class="col-6">
                     <input type="date" class="form-control form-control-lg" id="tgl_masuk">
@@ -45,41 +68,31 @@
             </div>
         </div>
 
-        <!-- 5. Nota + Layanan -->
+        <!-- Step 6: Nota A/B -->
         <div class="mb-2">
-            <label class="form-label small">5. Nota & Layanan</label>
-            <div class="row g-2 mb-2">
-                <div class="col-4">
-                    <select class="form-select form-select-lg" id="nota_prefix">
-                        <option value="A">🏪 A (Outlet)</option>
-                        <option value="B">🏠 B (Antar)</option>
-                    </select>
-                </div>
-                <div class="col-8">
-                    <select class="form-select form-select-lg" id="layanan" onchange="updateHarga()">
-                        <option value="">— Pilih Layanan —</option>
-                        {% for p in pricelist %}
-                        <option value="{{ p[1] }}" data-harga="{{ p[3] }}">{{ p[1] }} @{{ p[3]|int }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-            <div class="p-3 rounded border border-primary d-flex justify-content-between align-items-center">
-                <span class="fs-5">Total</span>
-                <span class="fs-3 fw-bold text-warning" id="total-display">Rp0</span>
-            </div>
+            <label class="form-label small">6. Nota</label>
+            <select class="form-select form-select-lg" id="nota_prefix">
+                <option value="A">🏪 A (Outlet)</option>
+                <option value="B">🏠 B (Antar/Ambil)</option>
+            </select>
         </div>
 
-        <!-- 6. Pembayaran -->
+        <!-- Total display -->
+        <div class="p-3 rounded border border-primary d-flex justify-content-between align-items-center mb-2">
+            <span class="fs-5">Total</span>
+            <span class="fs-3 fw-bold text-warning" id="total-display">Rp0</span>
+        </div>
+
+        <!-- Step 7: Pembayaran -->
         <div class="mb-2">
-            <label class="form-label small">6. Pembayaran</label>
+            <label class="form-label small">7. Pembayaran</label>
             <div class="row g-2">
                 <div class="col-6">
                     <div class="btn-group w-100" role="group">
                         <input type="radio" class="btn-check" name="bayar_waktu" id="bw_langsung" value="Langsung" checked>
-                        <label class="btn btn-outline-primary" for="bw_langsung">Bayar Skrg</label>
+                        <label class="btn btn-outline-primary btn-sm" for="bw_langsung">Bayar Skrg</label>
                         <input type="radio" class="btn-check" name="bayar_waktu" id="bw_ambil" value="Ambil">
-                        <label class="btn btn-outline-primary" for="bw_ambil">Bayar Nanti</label>
+                        <label class="btn btn-outline-primary btn-sm" for="bw_ambil">Bayar Nanti</label>
                     </div>
                 </div>
                 <div class="col-6">
@@ -92,6 +105,7 @@
         </div>
 
         <input type="hidden" id="harga" value="0">
+        <input type="hidden" id="tipe" value="KG">
         <input type="hidden" id="edit-row" value="">
         <button type="submit" class="btn btn-primary btn-lg w-100 mt-2" id="btn-order">
             <i class="bi bi-plus-circle"></i> Simpan Order
@@ -125,18 +139,52 @@
         return parseInt(p[2]) + ' ' + m[parseInt(p[1])-1] + ' ' + p[0];
     }
 
-    function updateHarga() {
+    function pilihLayanan() {
         const s = document.getElementById('layanan');
         const o = s.options[s.selectedIndex];
-        document.getElementById('harga').value = o?.dataset?.harga || 0;
+        if (!o.value) return;
+
+        const tipe = o.dataset.tipe || 'KG';
+        const harga = o.dataset.harga || '0';
+        document.getElementById('tipe').value = tipe;
+        document.getElementById('harga').value = harga;
+
+        document.getElementById('input-kg').classList.toggle('d-none', tipe !== 'KG');
+        document.getElementById('input-pcs').classList.toggle('d-none', tipe !== 'PCS');
+        document.getElementById('input-m2').classList.toggle('d-none', tipe !== 'M2');
+
+        document.getElementById('jumlah').value = '';
+        document.getElementById('jumlah-pcs').value = '';
+        document.getElementById('m2-panjang').value = '';
+        document.getElementById('m2-lebar').value = '';
+
         hitung();
     }
-    function hitung() {
-        const b = parseFloat(document.getElementById('berat').value) || 0;
-        const h = parseInt(document.getElementById('harga').value) || 0;
-        document.getElementById('total-display').textContent = 'Rp' + (b * h).toLocaleString('id-ID');
+
+    function getJumlah() {
+        const tipe = document.getElementById('tipe').value;
+        if (tipe === 'KG') {
+            return { jumlah: parseFloat(document.getElementById('jumlah').value) || 0, jumlah2: 0 };
+        } else if (tipe === 'PCS') {
+            return { jumlah: parseInt(document.getElementById('jumlah-pcs').value) || 0, jumlah2: 0 };
+        } else {
+            return { jumlah: parseFloat(document.getElementById('m2-panjang').value) || 0, jumlah2: parseFloat(document.getElementById('m2-lebar').value) || 0 };
+        }
     }
-    function setBerat(kg) { document.getElementById('berat').value = kg; hitung(); }
+
+    function hitung() {
+        const tipe = document.getElementById('tipe').value;
+        const harga = parseInt(document.getElementById('harga').value) || 0;
+        const { jumlah, jumlah2 } = getJumlah();
+        let total = 0;
+        if (tipe === 'M2') {
+            total = Math.floor(jumlah * jumlah2 * harga);
+        } else {
+            total = Math.floor(jumlah * harga);
+        }
+        document.getElementById('total-display').textContent = 'Rp' + total.toLocaleString('id-ID');
+        return total;
+    }
 
     const localeId = (n) => parseInt(n).toLocaleString('id-ID');
 
@@ -144,9 +192,13 @@
         e.preventDefault();
         const btn = document.getElementById('btn-order'); btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+
         const edit = parseInt(document.getElementById('edit-row').value) || 0;
         const method = edit ? 'PUT' : 'POST';
         const url = edit ? '/api/order/' + edit : '/api/order';
+        const tipe = document.getElementById('tipe').value;
+        const { jumlah, jumlah2 } = getJumlah();
+
         try {
             const r = await fetch(url, {
                 method, headers: { 'Content-Type': 'application/json' },
@@ -154,7 +206,9 @@
                     pelanggan: document.getElementById('pelanggan').value,
                     no_hp: document.getElementById('no_hp').value,
                     layanan: document.getElementById('layanan').value,
-                    berat: document.getElementById('berat').value,
+                    tipe: tipe,
+                    jumlah: String(jumlah),
+                    jumlah2: tipe === 'M2' ? String(jumlah2) : '',
                     harga: document.getElementById('harga').value,
                     non_kilo: document.getElementById('non_kilo').value,
                     tgl_masuk: fmtDate(document.getElementById('tgl_masuk').value),
@@ -169,7 +223,11 @@
                 document.getElementById('orderForm').reset();
                 document.getElementById('total-display').textContent = 'Rp0';
                 document.getElementById('harga').value = '0';
+                document.getElementById('tipe').value = 'KG';
                 document.getElementById('edit-row').value = '';
+                document.getElementById('input-kg').classList.remove('d-none');
+                document.getElementById('input-pcs').classList.add('d-none');
+                document.getElementById('input-m2').classList.add('d-none');
                 btn.innerHTML = '<i class="bi bi-plus-circle"></i> Simpan Order';
                 document.getElementById('tgl_masuk').value = today.toISOString().split('T')[0];
                 defSelesai.setDate(today.getDate() + 2);
@@ -188,14 +246,26 @@
         document.getElementById('pelanggan').value = r[3] || '';
         document.getElementById('no_hp').value = r[4] || '';
         document.getElementById('layanan').value = r[5] || '';
-        updateHarga();
-        document.getElementById('berat').value = r[6] || '';
+        pilihLayanan();
+
+        const tipe = r[16] || 'KG';
+        document.getElementById('tipe').value = tipe;
+        if (tipe === 'M2') {
+            document.getElementById('m2-panjang').value = r[6] || '';
+            document.getElementById('m2-lebar').value = r[7] || '';
+        } else if (tipe === 'PCS') {
+            document.getElementById('jumlah-pcs').value = r[6] || '';
+        } else {
+            document.getElementById('jumlah').value = r[6] || '';
+        }
+
+        document.getElementById('harga').value = r[8] || '0';
         hitung();
-        document.getElementById('bayar').value = r[10] || 'Cash';
-        document.getElementById('non_kilo').value = r[13] || '';
-        if (r[12]) document.getElementById('tgl_selesai').value = r[12];
-        if (r[14] === 'Langsung') document.getElementById('bw_langsung').checked = true;
-        else if (r[14] === 'Ambil') document.getElementById('bw_ambil').checked = true;
+        document.getElementById('bayar').value = r[11] || 'Cash';
+        document.getElementById('non_kilo').value = r[14] || '';
+        if (r[13]) document.getElementById('tgl_selesai').value = r[13];
+        if (r[15] === 'Langsung') document.getElementById('bw_langsung').checked = true;
+        else if (r[15] === 'Ambil') document.getElementById('bw_ambil').checked = true;
         document.getElementById('btn-order').innerHTML = '<i class="bi bi-pencil"></i> Update Order';
         window.scrollTo(0, 0);
     }
@@ -212,16 +282,18 @@
             const data = await fetch('/data/orderan').then(r=>r.json());
             const html = data.slice(-15).reverse().map(r => {
                 const row = parseInt(r[0]) + 3;
-                const statusBadge = { 'Selesai':'success', 'Diambil':'info', 'Proses':'warning' }[r[9]] || 'warning';
-                const bayarIcon = r[14] === 'Ambil' ? '🕐 ' : '';
+                const statusBadge = { 'Selesai':'success', 'Diambil':'info', 'Proses':'warning' }[r[10]] || 'warning';
+                const bayarIcon = r[15] === 'Ambil' ? '🕐 ' : '';
+                const tipe = r[16] || 'KG';
+                const jmlLabel = tipe === 'M2' ? (r[6]||'0')+'m×'+(r[7]||'0')+'m' : tipe === 'PCS' ? (r[6]||'0')+'pcs' : (r[6]||'0')+'kg';
                 return `<div class="list-group-item border-bottom border-secondary">
                     <div class="d-flex justify-content-between align-items-start">
-                        <div><small class="text-secondary">${r[2]||'#'+r[0]}</small>
+                        <div><small class="text-secondary">${r[2]||'#'+r[0]} <span class="badge bg-dark">${tipe}</span></small>
                         <div class="fw-medium">${r[3]||'—'}</div>
-                        <small>${r[5]||''} · ${r[6]||'0'}kg${r[13]?' <span class="text-info">+'+r[13]+'</span>':''}</small></div>
+                        <small>${r[5]||''} · ${jmlLabel}${r[14]?' <span class="text-info">+'+r[14]+'</span>':''}</small></div>
                         <div class="text-end">
-                            <div class="fw-bold text-warning">Rp${localeId(r[8])}</div>
-                            <span class="badge bg-${statusBadge}">${bayarIcon}${r[9]||'Proses'}</span>
+                            <div class="fw-bold text-warning">Rp${localeId(r[9])}</div>
+                            <span class="badge bg-${statusBadge}">${bayarIcon}${r[10]||'Proses'}</span>
                         </div>
                     </div>
                     <div class="mt-1 d-flex gap-1">

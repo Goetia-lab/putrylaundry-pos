@@ -32,7 +32,7 @@ async function cariPelanggan(){
             const hasil=allP.filter(p=>p.nama.toLowerCase().includes(q.toLowerCase()));
             if(!hasil.length){document.getElementById('hasil-cari').innerHTML='<div class="text-center py-5 text-secondary">Tidak ditemukan</div>';return;}
             document.getElementById('hasil-cari').innerHTML=hasil.map(p=>
-                '<div class="card mb-2" onclick="showDetail(\''+p.nama.replace(/'/g,"\\'")+'\')"><div class="card-body py-2"><div class="d-flex justify-content-between"><div><div class="fw-bold">'+p.nama+'</div><small class="text-secondary">'+(p.hp||'—')+'</small></div><div class="text-end"><div class="fw-bold text-warning">Rp'+p.total_bayar.toLocaleString('id-ID')+'</div><small class="text-secondary">'+p.total_order+'x · '+p.total_berat+'kg</small></div></div></div></div>'
+                '<div class="card mb-2" onclick="showDetail(\''+p.nama.replace(/'/g,"\\'")+'\')"><div class="card-body py-2"><div class="d-flex justify-content-between"><div><div class="fw-bold">'+p.nama+'</div><small class="text-secondary">'+(p.hp||'—')+'</small></div><div class="text-end"><div class="fw-bold text-warning">Rp'+p.total_bayar.toLocaleString('id-ID')+'</div><small class="text-secondary">'+p.total_order+'x · '+p.total_berat.toFixed(1)+'kg</small></div></div></div></div>'
             ).join('');
         }catch(e){document.getElementById('hasil-cari').innerHTML='<div class="text-center py-3 text-danger">Gagal memuat</div>';}
     },300);
@@ -45,20 +45,21 @@ function showDetail(nama){
         <div class="card mb-3"><div class="card-body">
             <div class="row text-center">
                 <div class="col-4"><div class="fs-4 fw-bold text-info">${p.total_order}x</div><small>Order</small></div>
-                <div class="col-4"><div class="fs-4 fw-bold text-warning">${p.total_berat}kg</div><small>Berat</small></div>
+                <div class="col-4"><div class="fs-4 fw-bold text-warning">${p.total_berat.toFixed(1)}kg</div><small>Berat</small></div>
                 <div class="col-4"><div class="fs-4 fw-bold text-success">Rp${p.total_bayar.toLocaleString('id-ID')}</div><small>Total</small></div>
             </div>
         </div></div>
         <div class="list-group list-group-flush">
-            ${p.orders.map(o=>`
-                <div class="list-group-item bg-transparent border-secondary">
+            ${p.orders.map(o=>{
+                const jmlLabel = o.tipe==='M2' ? (o.jumlah||'0')+'m×'+(o.jumlah2||'0')+'m' : o.tipe==='PCS' ? (o.jumlah||'0')+'pcs' : (o.jumlah||'0')+'kg';
+                return `<div class="list-group-item bg-transparent border-secondary">
                     <div class="d-flex justify-content-between">
-                        <div><small class="text-secondary">${o.tgl} · ${o.nota||'—'}</small><div>${o.layanan} · ${o.berat}kg${o.non_kilo?' <span class="text-info">+'+o.non_kilo+'</span>':''}</div></div>
+                        <div><small class="text-secondary">${o.tgl} · ${o.nota||'—'} <span class="badge bg-dark">${o.tipe||'KG'}</span></small><div>${o.layanan} · ${jmlLabel}${o.non_kilo?' <span class="text-info">+'+o.non_kilo+'</span>':''}</div></div>
                         <div class="text-end"><div class="fw-bold text-warning">Rp${parseInt(o.total).toLocaleString('id-ID')}</div>
                         <span class="badge bg-${o.status=='Selesai'?'success':o.status=='Diambil'?'info':'warning'}">${o.status}</span>
                         ${o.bayar_waktu=='Ambil'?'<small class="d-block text-warning">🕐 Bayar nanti</small>':''}</div>
                     </div>
-                </div>`).join('')}
+                </div>`}).join('')}
         </div>`;
     new bootstrap.Modal(document.getElementById('modalDetail')).show();
 }
