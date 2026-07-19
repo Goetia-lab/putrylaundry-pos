@@ -1,231 +1,139 @@
 {% extends "base.html" %}
-{% block title %}POS — Input Order{% endblock %}
-{% block header %}🧾 POS — Input Order Baru{% endblock %}
-
+{% block title %}Order{% endblock %}
 {% block content %}
 <form id="orderForm" class="card mb-3" onsubmit="return submitOrder(event)">
     <div class="card-body">
         <div class="mb-2">
-            <label class="form-label small">Pelanggan</label>
-            <input type="text" class="form-control form-control-lg" id="pelanggan" placeholder="Nama customer" required autofocus>
-        </div>
-        <div class="row g-2 mb-2">
-            <div class="col-6">
-                <label class="form-label small">No HP</label>
-                <input type="tel" class="form-control" id="no_hp" placeholder="08xxx">
-            </div>
-            <div class="col-6">
-                <label class="form-label small">Nota</label>
-                <input type="text" class="form-control" id="nota" placeholder="PL-001">
-            </div>
+            <label class="form-label small">Nama Pelanggan</label>
+            <input type="text" class="form-control form-control-lg" id="pelanggan" placeholder="Nama customer..." required autofocus>
         </div>
         <div class="mb-2">
             <label class="form-label small">Layanan</label>
             <select class="form-select form-select-lg" id="layanan" onchange="updateHarga()">
-                <option value="">— Pilih Layanan —</option>
+                <option value="">— Pilih —</option>
                 {% for p in pricelist %}
-                <option value="{{ p[1] }}" data-harga="{{ p[3] }}">{{ p[1] }} ({{ p[2] }})</option>
+                <option value="{{ p[1] }}" data-harga="{{ p[3] }}">{{ p[1] }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="row g-2 mb-2">
-            <div class="col-6">
-                <label class="form-label small">Berat (Kg)</label>
-                <input type="number" class="form-control form-control-lg" id="berat" step="0.5" min="0.5" placeholder="0" oninput="hitungTotal()">
-            </div>
-            <div class="col-6">
-                <label class="form-label small">Harga/Kg (Rp)</label>
-                <input type="number" class="form-control form-control-lg" id="harga" step="500" placeholder="0" oninput="hitungTotal()">
-            </div>
-        </div>
-        <div class="mb-3">
-            <div class="p-3 rounded border border-primary d-flex justify-content-between align-items-center">
-                <span class="fs-5">Total</span>
-                <span class="fs-3 fw-bold text-warning" id="total-display">Rp 0</span>
-            </div>
-        </div>
         <div class="row g-2 mb-3">
-            <div class="col-6">
-                <select class="form-select" id="status">
-                    <option value="Proses">🔵 Proses</option>
-                    <option value="Selesai">🟢 Selesai</option>
-                    <option value="Diambil">✅ Diambil</option>
-                </select>
-            </div>
-            <div class="col-6">
-                <select class="form-select" id="bayar">
-                    <option value="Cash">💵 Cash</option>
-                    <option value="Transfer">📱 Transfer</option>
-                    <option value="Hutang">📝 Hutang</option>
-                </select>
-            </div>
+            <div class="col-4"><input type="number" class="form-control form-control-lg" placeholder="Kg" id="berat" step="0.5" oninput="hitung()"></div>
+            <div class="col-3"><button type="button" class="btn btn-outline-secondary w-100 h-100" onclick="setBerat(2)">2kg</button></div>
+            <div class="col-3"><button type="button" class="btn btn-outline-secondary w-100 h-100" onclick="setBerat(3)">3kg</button></div>
+            <div class="col-2"><button type="button" class="btn btn-outline-secondary w-100 h-100" onclick="setBerat(5)">5kg</button></div>
         </div>
-        <div class="mb-3">
-            <input type="text" class="form-control" id="catatan" placeholder="Catatan (opsional)">
-        </div>
+        <input type="hidden" id="harga" value="0">
         <input type="hidden" id="edit-row" value="">
+        <div class="p-3 rounded border border-primary d-flex justify-content-between align-items-center mb-3">
+            <span class="fs-5">Total</span>
+            <span class="fs-3 fw-bold text-warning" id="total-display">Rp0</span>
+        </div>
         <button type="submit" class="btn btn-primary btn-lg w-100" id="btn-order">
-            <i class="bi bi-plus-circle"></i> Simpan Order
+            <i class="bi bi-plus-circle"></i> Simpan
         </button>
     </div>
 </form>
 
-<div class="card mb-3">
-    <div class="card-header"><small>Quick Berat</small></div>
-    <div class="card-body">
-        <div class="row g-1">
-            <div class="col-3"><button class="btn btn-outline-secondary w-100 qty-btn" onclick="setBerat(1)">1 kg</button></div>
-            <div class="col-3"><button class="btn btn-outline-secondary w-100 qty-btn" onclick="setBerat(2)">2 kg</button></div>
-            <div class="col-3"><button class="btn btn-outline-secondary w-100 qty-btn" onclick="setBerat(3)">3 kg</button></div>
-            <div class="col-3"><button class="btn btn-outline-secondary w-100 qty-btn" onclick="setBerat(5)">5 kg</button></div>
-            <div class="col-3"><button class="btn btn-outline-secondary w-100 qty-btn" onclick="setBerat(8)">8 kg</button></div>
-            <div class="col-3"><button class="btn btn-outline-secondary w-100 qty-btn" onclick="setBerat(10)">10 kg</button></div>
-        </div>
-    </div>
-</div>
-
-<div class="card mb-3">
+<div class="card">
     <div class="card-header d-flex justify-content-between">
-        <span>📋 Order Hari Ini</span>
-        <a href="/buku" class="btn btn-sm btn-outline-light">Semua</a>
+        <span><i class="bi bi-clock-history"></i> Order Terbaru</span>
     </div>
-    <div class="card-body p-0" id="today-orders">
+    <div class="card-body p-0" id="recent-orders">
         <div class="text-center py-3 text-secondary">Memuat...</div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    let editingRow = null;
+    function updateHarga(){
+        const s=document.getElementById('layanan');
+        const o=s.options[s.selectedIndex];
+        document.getElementById('harga').value=o?.dataset?.harga||0;
+        hitung();
+    }
+    function hitung(){
+        const b=parseFloat(document.getElementById('berat').value)||0;
+        const h=parseInt(document.getElementById('harga').value)||0;
+        document.getElementById('total-display').textContent='Rp'+(b*h).toLocaleString('id-ID');
+    }
+    function setBerat(kg){document.getElementById('berat').value=kg;hitung();}
 
-    function updateHarga() {
-        const select = document.getElementById('layanan');
-        const opt = select.options[select.selectedIndex];
-        if (opt && opt.dataset.harga) {
-            document.getElementById('harga').value = opt.dataset.harga;
-            hitungTotal();
-        }
-    }
-    function hitungTotal() {
-        const berat = parseFloat(document.getElementById('berat').value) || 0;
-        const harga = parseInt(document.getElementById('harga').value) || 0;
-        document.getElementById('total-display').textContent = 'Rp ' + (berat * harga).toLocaleString('id-ID');
-    }
-    function setBerat(kg) {
-        document.getElementById('berat').value = kg;
-        hitungTotal();
-    }
-
-    function editOrder(row, r) {
-        editingRow = row;
-        document.getElementById('edit-row').value = row;
-        document.getElementById('pelanggan').value = r[3] || '';
-        document.getElementById('no_hp').value = r[4] || '';
-        document.getElementById('nota').value = r[2] || '';
-        document.getElementById('layanan').value = r[5] || '';
-        updateHarga();
-        document.getElementById('berat').value = r[6] || '';
-        document.getElementById('harga').value = r[7] || '';
-        hitungTotal();
-        document.getElementById('status').value = r[9] || 'Proses';
-        document.getElementById('bayar').value = r[10] || 'Cash';
-        document.getElementById('catatan').value = r[11] || '';
-        document.getElementById('btn-order').innerHTML = '<i class="bi bi-pencil-square"></i> Update Order';
-        document.getElementById('pelanggan').focus();
-        window.scrollTo(0, 0);
-    }
-
-    function deleteOrder(row) {
-        if (!confirm('Hapus order #' + (row-3) + '?')) return;
-        fetch('/api/order/' + row, { method: 'DELETE' })
-            .then(r => r.json())
-            .then(d => {
-                if (d.ok) { showToast('🗑️ Order dihapus!', 'warning'); loadTodayOrders(); }
-                else showToast('❌ Gagal hapus', 'danger');
-            });
-    }
-
-    async function submitOrder(e) {
+    async function submitOrder(e){
         e.preventDefault();
-        const btn = document.getElementById('btn-order');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
-        const editing = parseInt(document.getElementById('edit-row').value) || 0;
-        const method = editing ? 'PUT' : 'POST';
-        const url = editing ? '/api/order/' + editing : '/api/order';
-        try {
-            const resp = await fetch(url, {
-                method: method,
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    pelanggan: document.getElementById('pelanggan').value,
-                    no_hp: document.getElementById('no_hp').value,
-                    nota: document.getElementById('nota').value,
-                    layanan: document.getElementById('layanan').value,
-                    berat: document.getElementById('berat').value,
-                    harga: document.getElementById('harga').value,
-                    status: document.getElementById('status').value,
-                    bayar: document.getElementById('bayar').value,
-                    catatan: document.getElementById('catatan').value
-                })
-            });
-            const result = await resp.json();
-            if (result.ok) {
-                document.getElementById('orderForm').reset();
-                document.getElementById('total-display').textContent = 'Rp 0';
-                document.getElementById('edit-row').value = '';
-                editingRow = null;
-                document.getElementById('btn-order').innerHTML = '<i class="bi bi-plus-circle"></i> Simpan Order';
-                loadTodayOrders();
-                if (navigator.vibrate) navigator.vibrate(30);
-                showToast('✅ ' + (editing ? 'Order diupdate!' : 'Order berhasil disimpan!'), 'success');
+        const btn=document.getElementById('btn-order');btn.disabled=true;
+        const edit=parseInt(document.getElementById('edit-row').value)||0;
+        const method=edit?'PUT':'POST';
+        const url=edit?'/api/order/'+edit:'/api/order';
+        try{
+            const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({
+                    pelanggan:document.getElementById('pelanggan').value,
+                    layanan:document.getElementById('layanan').value,
+                    berat:document.getElementById('berat').value,
+                    harga:document.getElementById('harga').value
+                })});
+            const d=await r.json();
+            if(d.ok){
+                document.getElementById('orderForm').reset();document.getElementById('total-display').textContent='Rp0';
+                document.getElementById('edit-row').value='';
+                btn.innerHTML='<i class="bi bi-plus-circle"></i> Simpan';
+                loadOrders();
+                if(navigator.vibrate)navigator.vibrate(20);
+                toast('✅ Berhasil!','success');
             }
-        } catch(e) {
-            showToast('❌ Gagal', 'danger');
-        }
-        btn.disabled = false;
-        if (!editing) btn.innerHTML = '<i class="bi bi-plus-circle"></i> Simpan Order';
-        document.getElementById('pelanggan').focus();
+        }catch(e){toast('❌ Gagal','danger')}
+        btn.disabled=false;
+        if(!edit)btn.innerHTML='<i class="bi bi-plus-circle"></i> Simpan';
     }
 
-    async function loadTodayOrders() {
-        try {
-            const data = await fetch('/data/orderan').then(r=>r.json());
-            const today = data.slice(-20).reverse();
-            const html = today.length ? today.map(r => {
-                const row = parseInt(r[0]) + 3;
+    function editOrder(row,r){
+        document.getElementById('edit-row').value=row;
+        document.getElementById('pelanggan').value=r[3]||'';
+        document.getElementById('layanan').value=r[5]||'';
+        document.getElementById('berat').value=r[6]||'';
+        updateHarga();
+        document.getElementById('btn-order').innerHTML='<i class="bi bi-pencil"></i> Update';
+        window.scrollTo(0,0);
+    }
+
+    function deleteOrder(row){
+        if(!confirm('Hapus order ini?'))return;
+        fetch('/api/order/'+row,{method:'DELETE'}).then(r=>r.json()).then(d=>{
+            if(d.ok){toast('🗑️ Dihapus','warning');loadOrders();}
+        });
+    }
+
+    async function loadOrders(){
+        try{
+            const data=await fetch('/data/orderan').then(r=>r.json());
+            const html=data.slice(-15).reverse().map(r=>{
+                const row=parseInt(r[0])+3;
                 return `<div class="list-group-item border-bottom border-secondary">
                     <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <small class="text-secondary">#${r[0]} · ${r[1]||'-'}</small>
-                            <div class="fw-medium">${r[3]||'—'}</div>
-                            <small>${r[5]||''} · ${r[6]||'0'}kg</small>
-                        </div>
+                        <div><small class="text-secondary">#${r[0]}</small>
+                        <div class="fw-medium">${r[3]||'—'}</div>
+                        <small>${r[5]||''} · ${r[6]||'0'}kg</small></div>
                         <div class="text-end">
                             <div class="fw-bold text-warning">Rp${parseInt(r[8]).toLocaleString('id-ID')}</div>
-                            <span class="badge ${r[9]=='Selesai'?'bg-success':r[9]=='Diambil'?'bg-info':'bg-warning'}">${r[9]||'Proses'}</span>
+                            <span class="badge bg-${r[9]=='Selesai'?'success':r[9]=='Diambil'?'info':'warning'}">${r[9]||'Proses'}</span>
                         </div>
                     </div>
-                    <div class="mt-1">
-                        <button class="btn btn-sm btn-outline-info me-1" onclick="editOrder(${row}, ${JSON.stringify(r).replace(/"/g,"'")})"><i class="bi bi-pencil"></i></button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteOrder(${row})"><i class="bi bi-trash"></i></button>
-                    </div>
+                    <div class="mt-1"><button class="btn btn-sm btn-outline-info me-1" onclick="editOrder(${row},${JSON.stringify(r).replace(/"/g,"'")})"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteOrder(${row})"><i class="bi bi-trash"></i></button></div>
                 </div>`;
-            }).join('') : '<div class="text-center py-3 text-secondary">Belum ada order</div>';
-            document.getElementById('today-orders').innerHTML = '<div class="list-group list-group-flush">'+html+'</div>';
-        } catch(e) {
-            document.getElementById('today-orders').innerHTML = '<div class="text-center py-3 text-danger">Gagal memuat</div>';
-        }
+            }).join('')||'<div class="text-center py-3 text-secondary">Belum ada order</div>';
+            document.getElementById('recent-orders').innerHTML='<div class="list-group list-group-flush">'+html+'</div>';
+        }catch(e){document.getElementById('recent-orders').innerHTML='<div class="text-center py-3 text-danger">Gagal</div>';}
     }
-    loadTodayOrders();
+    loadOrders();
 
-    function showToast(msg, type) {
-        const t = document.createElement('div');
-        t.className = 'position-fixed bottom-0 start-50 translate-middle-x p-3'; t.style.zIndex = 9999;
-        t.innerHTML = `<div class="toast align-items-center text-bg-${type} border-0 show"><div class="d-flex"><div class="toast-body">${msg}</div></div></div>`;
-        document.body.appendChild(t);
-        setTimeout(() => t.remove(), 2000);
+    function toast(msg,type){
+        const t=document.createElement('div');
+        t.className='position-fixed bottom-0 start-50 translate-middle-x p-3';t.style.zIndex=9999;
+        t.innerHTML='<div class="toast align-items-center text-bg-'+type+' border-0 show"><div class="d-flex"><div class="toast-body">'+msg+'</div></div></div>';
+        document.body.appendChild(t);setTimeout(()=>t.remove(),2000);
     }
 </script>
 {% endblock %}

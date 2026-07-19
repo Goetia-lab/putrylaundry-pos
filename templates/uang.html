@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Uang{% endblock %}
+{% block content %}
+<form id="uangForm" class="card mb-3" onsubmit="return submitUang(event)">
+    <div class="card-body">
+        <div class="mb-2">
+            <label class="form-label small">Keterangan</label>
+            <input type="text" class="form-control form-control-lg" id="keterangan" placeholder="Mis: Bayar listrik, Setor cucian..." required autofocus>
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label small">Jenis</label>
+                <select class="form-select form-select-lg" id="jenis">
+                    <option value="debit">💰 Pemasukan</option>
+                    <option value="kredit">💸 Pengeluaran</option>
+                </select>
+            </div>
+            <div class="col-6">
+                <label class="form-label small">Jumlah (Rp)</label>
+                <input type="number" class="form-control form-control-lg" id="jumlah" placeholder="0" min="0" required>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-warning btn-lg w-100">
+            <i class="bi bi-check-circle"></i> Simpan
+        </button>
+    </div>
+</form>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between">
+        <span><i class="bi bi-clock-history"></i> Riwayat Keuangan</span>
+    </div>
+    <div class="card-body p-0" id="riwayat-uang">
+        <div class="text-center py-3 text-secondary">Memuat...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function submitUang(e){
+        e.preventDefault();
+        const btn=e.target.querySelector('button[type=submit]');btn.disabled=true;
+        const jenis=document.getElementById('jenis').value;
+        try{
+            const r=await fetch('/api/uang',{method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({
+                    keterangan:document.getElementById('keterangan').value,
+                    debit:jenis==='debit'?document.getElementById('jumlah').value:'',
+                    kredit:jenis==='kredit'?document.getElementById('jumlah').value:''
+                })});
+            const d=await r.json();
+            if(d.ok){
+                document.getElementById('uangForm').reset();
+                loadUang();toast('✅ Tersimpan','success');
+            }
+        }catch(e){toast('❌ Gagal','danger')}
+        btn.disabled=false;
+    }
+
+    async function loadUang(){
+        try{
+            const data=await fetch('/data/buku').then(r=>r.json());
+            const html=data.slice(-20).reverse().map(r=>
+                '<div class="list-group-item border-bottom border-secondary"><div class="d-flex justify-content-between"><div><small class="text-secondary">'+(r[1]||'-')+'</small><div class="fw-medium">'+(r[2]||'-')+'</div></div><div class="text-end">'+(r[3]?'<div class="text-success fw-bold">+Rp'+parseInt(r[3]).toLocaleString('id-ID')+'</div>':'')+(r[4]?'<div class="text-danger fw-bold">-Rp'+parseInt(r[4]).toLocaleString('id-ID')+'</div>':'')+'</div></div></div>'
+            ).join('')||'<div class="text-center py-3 text-secondary">Belum ada</div>';
+            document.getElementById('riwayat-uang').innerHTML='<div class="list-group list-group-flush">'+html+'</div>';
+        }catch(e){document.getElementById('riwayat-uang').innerHTML='<div class="text-center py-3 text-danger">Gagal</div>';}
+    }
+    loadUang();
+
+    function toast(msg,type){
+        const t=document.createElement('div');
+        t.className='position-fixed bottom-0 start-50 translate-middle-x p-3';t.style.zIndex=9999;
+        t.innerHTML='<div class="toast align-items-center text-bg-'+type+' border-0 show"><div class="d-flex"><div class="toast-body">'+msg+'</div></div></div>';
+        document.body.appendChild(t);setTimeout(()=>t.remove(),2000);
+    }
+</script>
+{% endblock %}

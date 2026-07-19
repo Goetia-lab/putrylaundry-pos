@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Cari{% endblock %}
+{% block content %}
+<div class="mb-2">
+    <input type="text" class="form-control form-control-lg" id="cari-input" placeholder="🔍 Nama pelanggan..." oninput="cariPelanggan()" autofocus>
+</div>
+<div id="hasil-cari">
+    <div class="text-center py-5 text-secondary"><i class="bi bi-search fs-1 d-block mb-2"></i>Ketik nama untuk mencari</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allP=[];
+let debounce=null;
+
+async function cariPelanggan(){
+    clearTimeout(debounce);
+    const q=document.getElementById('cari-input').value.trim();
+    if(!q){document.getElementById('hasil-cari').innerHTML='<div class="text-center py-5 text-secondary"><i class="bi bi-search fs-1 d-block mb-2"></i>Ketik nama untuk mencari</div>';return;}
+    debounce=setTimeout(async()=>{
+        try{
+            if(!allP.length)allP=await fetch('/data/pelanggan').then(r=>r.json());
+            const hasil=allP.filter(p=>p.nama.toLowerCase().includes(q.toLowerCase()));
+            if(!hasil.length){document.getElementById('hasil-cari').innerHTML='<div class="text-center py-5 text-secondary">Tidak ditemukan</div>';return;}
+            document.getElementById('hasil-cari').innerHTML=hasil.map(p=>
+                '<div class="card mb-2" onclick="showDetail(\''+p.nama.replace(/'/g,"\\'")+'\')"><div class="card-body py-2"><div class="d-flex justify-content-between"><div><div class="fw-bold">'+p.nama+'</div><small class="text-secondary">'+(p.hp||'—')+'</small></div><div class="text-end"><div class="fw-bold text-warning">Rp'+p.total_bayar.toLocaleString('id-ID')+'</div><small class="text-secondary">'+p.total_order+'x · '+p.total_berat+'kg</small></div></div></div></div>'
+            ).join('');
+        }catch(e){document.getElementById('hasil-cari').innerHTML='<div class="text-center py-3 text-danger">Gagal memuat</div>';}
+    },300);
+}
+</script>
+{% endblock %}

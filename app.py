@@ -7,245 +7,129 @@ from google.auth.exceptions import RefreshError
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24).hex())
-
 SHEET_ID = "1tz1uFlQi4KkIkqqnModjMj21qcvvxGf0KcuavD9U9bA"
 
-def get_gauth_info():
+def gc():
     b64 = os.environ.get("GAUTH_B64")
-    if not b64:
-        raise ValueError("GAUTH_B64 env var not set")
-    try:
-        return json.loads(base64.b64decode(b64.strip()).decode("utf-8"))
-    except Exception as e:
-        raise ValueError(f"Invalid GAUTH_B64: {e}")
-
-def get_gc():
-    info = get_gauth_info()
-    scopes = info.get("scopes", ["https://www.googleapis.com/auth/spreadsheets"])
-    creds = Credentials.from_authorized_user_info(info, scopes=scopes)
+    info = json.loads(base64.b64decode(b64.strip()).decode())
+    creds = Credentials.from_authorized_user_info(info, scopes=["https://www.googleapis.com/auth/spreadsheets"])
     if not creds.valid:
         if creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-            except RefreshError as e:
-                raise RuntimeError(f"Token expired: {e}")
+            creds.refresh(Request())
         else:
             raise RuntimeError("Credentials invalid")
     return gspread.authorize(creds)
 
-def sh():
-    return get_gc().open_by_key(SHEET_ID)
+def sheet(name):
+    return gc().open_by_key(SHEET_ID).worksheet(name)
 
 def next_row(ws):
     vals = ws.col_values(1)
     for i, v in enumerate(vals[3:], start=4):
-        if not v.strip():
-            return i
+        if not v.strip(): return i
     return len(vals) + 1
 
 # ─── Routes ────────────────────────────────────────
 
 @app.route("/")
 def index():
-    return redirect("/dashboard")
-
-@app.route("/debug")
-def debug():
-    try:
-        info = get_gauth_info()
-        gc = get_gc()
-        ws = gc.open_by_key(SHEET_ID).worksheet("Dashboard")
-        vals = ws.get_all_values()
-        return f"<h3>✅ OK</h3><p>Rows: {len(vals)}</p><pre>{json.dumps(vals[:3], indent=2)}</pre>"
-    except Exception as e:
-        return f"<h3>❌ Error</h3><pre>{traceback.format_exc()}</pre>", 500
-
-@app.route("/dashboard")
-def dashboard():
-    try:
-        values = sh().worksheet("Dashboard").get_all_values()
-        return render_template("dashboard.html", values=values)
-    except Exception as e:
-        return f"<h3>Dashboard Error</h3><pre>{traceback.format_exc()}</pre>", 500
+    return redirect("/pos")
 
 @app.route("/pos")
 def pos():
-    try:
-        ws = sh().worksheet("Pricelist")
-        pricelist = ws.get_all_values()[3:]
-        pricelist = [r for r in pricelist if r[0].strip().isdigit()]
-        return render_template("pos.html", pricelist=pricelist)
-    except Exception as e:
-        return f"<h3>POS Error</h3><pre>{traceback.format_exc()}</pre>", 500
+    ws = sheet("Pricelist")
+    pricelist = [r for r in ws.get_all_values()[3:] if r[0].strip().isdigit()]
+    return render_template("pos.html", pricelist=pricelist, active="pos")
 
-@app.route("/kas")
-def kas():
-    return render_template("kas.html")
+@app.route("/dashboard")
+def dashboard():
+    return render_template("dashboard.html", active="dash")
 
-@app.route("/pelanggan")
-def pelanggan():
-    return render_template("pelanggan.html")
+@app.route("/uang")
+def uang():
+    return render_template("uang.html", active="uang")
 
-@app.route("/buku")
-def buku():
-    return render_template("buku.html")
+@app.route("/cari")
+def cari():
+    return render_template("cari.html", active="cari")
 
-@app.route("/export/pdf")
-def export_pdf():
-    try:
-        vals = sh().worksheet("Orderan").get_all_values()[3:]
-        orders = [r for r in vals if r[0].strip().isdigit()]
-        return render_template("export.html", orders=orders)
-    except Exception as e:
-        return f"<h3>Error</h3><pre>{traceback.format_exc()}</pre>", 500
-
-# ─── API ────────────────────────────────────────
+# ─── API ───────────────────────────────────────────
 
 @app.route("/api/order", methods=["POST"])
 def add_order():
-    try:
-        data = request.get_json()
-        ws = sh().worksheet("Orderan")
-        row = next_row(ws)
-        total = int(data.get("berat", 0)) * int(data.get("harga", 0))
-        ws.update(f"A{row}:L{row}", [[
-            str(row - 3),
-            data.get("tanggal", datetime.date.today().strftime("%d %b %Y")),
-            data.get("nota", ""),
-            data.get("pelanggan", ""),
-            data.get("no_hp", ""),
-            data.get("layanan", ""),
-            data.get("berat", "0"),
-            data.get("harga", "0"),
-            str(total),
-            data.get("status", "Proses"),
-            data.get("bayar", "Cash"),
-            data.get("catatan", "")
-        ]], value_input_option="USER_ENTERED")
-        return jsonify({"ok": True, "row": row, "total": total})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+    data = request.get_json()
+    ws = sheet("Orderan")
+    row = next_row(ws)
+    layanan = data.get("layanan", "")
+    harga = data.get("harga", "0")
+    berat = data.get("berat", "0")
+    total = int(berat or 0) * int(harga or 0)
+    tgl = datetime.date.today().strftime("%d %b %Y")
+    ws.update(f"A{row}:L{row}", [[
+        str(row-3), tgl, "", data.get("pelanggan",""), "",
+        layanan, berat, harga, str(total), "Proses", "Cash", ""
+    ]], value_input_option="USER_ENTERED")
+    return jsonify({"ok": True, "row": row, "total": total})
 
 @app.route("/api/order/<int:row>", methods=["PUT", "DELETE"])
 def edit_order(row):
-    try:
-        ws = sh().worksheet("Orderan")
-        if request.method == "DELETE":
-            ws.update(f"A{row}:L{row}", [[""] * 12], value_input_option="USER_ENTERED")
-            return jsonify({"ok": True})
-        data = request.get_json()
-        total = int(data.get("berat", 0)) * int(data.get("harga", 0))
-        ws.update(f"A{row}:L{row}", [[
-            str(row - 3),
-            data.get("tanggal", ""),
-            data.get("nota", ""),
-            data.get("pelanggan", ""),
-            data.get("no_hp", ""),
-            data.get("layanan", ""),
-            data.get("berat", "0"),
-            data.get("harga", "0"),
-            str(total),
-            data.get("status", "Proses"),
-            data.get("bayar", "Cash"),
-            data.get("catatan", "")
-        ]], value_input_option="USER_ENTERED")
-        return jsonify({"ok": True, "total": total})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+    ws = sheet("Orderan")
+    if request.method == "DELETE":
+        ws.update(f"A{row}:L{row}", [[""]*12], value_input_option="USER_ENTERED")
+        return jsonify({"ok": True})
+    data = request.get_json()
+    total = int(data.get("berat",0)) * int(data.get("harga",0))
+    ws.update(f"A{row}:L{row}", [[
+        str(row-3), data.get("tanggal",""), data.get("nota",""),
+        data.get("pelanggan",""), data.get("no_hp",""),
+        data.get("layanan",""), data.get("berat","0"), data.get("harga","0"),
+        str(total), data.get("status","Proses"), data.get("bayar","Cash"), ""
+    ]], value_input_option="USER_ENTERED")
+    return jsonify({"ok": True, "total": total})
 
-@app.route("/api/kas", methods=["POST"])
-def add_kas():
-    try:
-        data = request.get_json()
-        ws = sh().worksheet(data.get("sheet", "Kas Outlet"))
-        row = next_row(ws)
-        debit = str(data.get("debit", "")).replace(".","").replace(",","")
-        kredit = str(data.get("kredit", "")).replace(".","").replace(",","")
-        ws.update(f"A{row}:E{row}", [[
-            str(row - 3),
-            data.get("tanggal", datetime.date.today().strftime("%d %b %Y")),
-            data.get("keterangan", ""),
-            debit or "",
-            kredit or ""
-        ]], value_input_option="USER_ENTERED")
-        return jsonify({"ok": True, "row": row})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+@app.route("/api/uang", methods=["POST"])
+def add_uang():
+    data = request.get_json()
+    ws = sheet("Buku Besar")
+    row = next_row(ws)
+    debit = str(data.get("debit","")).replace(".","").replace(",","")
+    kredit = str(data.get("kredit","")).replace(".","").replace(",","")
+    tgl = datetime.date.today().strftime("%d %b %Y")
+    ws.update(f"A{row}:F{row}", [[
+        str(row-3), tgl, data.get("keterangan",""),
+        debit or "", kredit or "", ""
+    ]], value_input_option="USER_ENTERED")
+    return jsonify({"ok": True, "row": row})
 
-@app.route("/api/bukubesar", methods=["POST"])
-def add_bukubesar():
-    try:
-        data = request.get_json()
-        ws = sh().worksheet("Buku Besar")
-        row = next_row(ws)
-        debit = str(data.get("debit", "")).replace(".","").replace(",","")
-        kredit = str(data.get("kredit", "")).replace(".","").replace(",","")
-        ws.update(f"A{row}:F{row}", [[
-            str(row - 3),
-            data.get("tanggal", datetime.date.today().strftime("%d %b %Y")),
-            data.get("transaksi", ""),
-            debit or "",
-            kredit or "",
-            ""
-        ]], value_input_option="USER_ENTERED")
-        return jsonify({"ok": True, "row": row})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-@app.route("/data/orderan")
-def data_orderan():
-    try:
-        values = sh().worksheet("Orderan").get_all_values()[3:]
-        return jsonify([r for r in values if r[0].strip().isdigit()])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/data/bukubesar")
-def data_bukubesar():
-    try:
-        values = sh().worksheet("Buku Besar").get_all_values()[3:]
-        return jsonify([r for r in values if r[0].strip().isdigit()])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/data/kas/<sheet>")
-def data_kas(sheet):
-    try:
-        values = sh().worksheet(sheet).get_all_values()[3:]
-        return jsonify([r for r in values if r[0].strip().isdigit()])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@app.route("/data/<jenis>")
+def data_jenis(jenis):
+    ws = sheet({"orderan":"Orderan","buku":"Buku Besar","kas":"Kas Outlet"}.get(jenis, jenis))
+    vals = ws.get_all_values()[3:]
+    return jsonify([r for r in vals if r[0].strip().isdigit()])
 
 @app.route("/data/pelanggan")
 def data_pelanggan():
-    try:
-        vals = sh().worksheet("Orderan").get_all_values()[3:]
-        orders = [r for r in vals if r[0].strip().isdigit()]
-        pelanggan = {}
-        for r in reversed(orders):
-            name = r[3].strip()
-            if not name: continue
-            if name not in pelanggan:
-                pelanggan[name] = {"nama": name, "hp": r[4], "total_order": 0,
-                    "total_berat": 0.0, "total_bayar": 0, "orders": []}
-            p = pelanggan[name]
-            p["total_order"] += 1
-            p["total_berat"] += float(r[6] or 0)
-            p["total_bayar"] += int(r[8] or 0)
-            if r[4] and not p["hp"]: p["hp"] = r[4]
-            p["orders"].append({"id": r[0], "tgl": r[1], "nota": r[2], "layanan": r[5],
-                "berat": r[6], "harga": r[7], "total": r[8], "status": r[9], "bayar": r[10]})
-        return jsonify(sorted(pelanggan.values(), key=lambda x: x["total_bayar"], reverse=True))
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    vals = sheet("Orderan").get_all_values()[3:]
+    orders = [r for r in vals if r[0].strip().isdigit()]
+    p = {}
+    for r in reversed(orders):
+        name = r[3].strip()
+        if not name: continue
+        if name not in p:
+            p[name] = {"nama":name, "hp":r[4], "total_order":0, "total_berat":0.0, "total_bayar":0, "orders":[]}
+        x = p[name]; x["total_order"] += 1
+        x["total_berat"] += float(r[6] or 0)
+        x["total_bayar"] += int(r[8] or 0)
+        if r[4] and not x["hp"]: x["hp"] = r[4]
+        x["orders"].append({"id":r[0],"tgl":r[1],"nota":r[2],"layanan":r[5],"berat":r[6],"harga":r[7],"total":r[8],"status":r[9],"bayar":r[10]})
+    return jsonify(sorted(p.values(), key=lambda x: x["total_bayar"], reverse=True))
 
 @app.route("/health")
 def health():
     try:
-        get_gc()
-        return jsonify({"status": "ok"})
-    except Exception as e:
-        return jsonify({"status": "error", "error": str(e)}), 500
+        gc()
+        return jsonify({"status":"ok"})
+    except: return jsonify({"status":"error"}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
