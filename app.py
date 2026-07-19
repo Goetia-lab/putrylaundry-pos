@@ -181,6 +181,9 @@ def data_pelanggan():
 def setup_tipe():
     """One-time: set kolom Tipe di Pricelist berdasarkan nama layanan."""
     ws = sheet("Pricelist")
+    try:
+        ws.update("E3", "Tipe", value_input_option="USER_ENTERED")
+    except: pass
     data = ws.get_all_values()
     tipe_map = {
         "Cuci Kering": "KG", "Cuci Setrika": "KG", "Setrika Saja": "KG",
@@ -192,8 +195,11 @@ def setup_tipe():
     updated = 0
     for i, r in enumerate(data[3:], start=4):
         if r[0] and r[0].strip().isdigit() and r[1].strip() in tipe_map:
-            ws.update(f"E{i}", tipe_map[r[1].strip()], value_input_option="USER_ENTERED")
-            updated += 1
+            try:
+                ws.update(f"E{i}", tipe_map[r[1].strip()], value_input_option="USER_ENTERED")
+                updated += 1
+            except Exception as e:
+                return jsonify({"ok": False, "error": str(e), "row": i}), 500
     return jsonify({"ok": True, "updated": updated})
 
 @app.route("/health")
