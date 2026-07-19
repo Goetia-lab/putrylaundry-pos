@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Laporan{% endblock %}
+{% block content %}
+<div class="card mb-2">
+    <div class="card-header py-1"><i class="bi bi-bar-chart"></i> Rekap Keuangan</div>
+    <div class="card-body py-2" id="rekap">
+        <div class="text-center py-3 text-secondary">Memuat...</div>
+    </div>
+</div>
+
+<div class="card mb-2">
+    <div class="card-header py-1 d-flex justify-content-between">
+        <span><i class="bi bi-journal-text"></i> Detail per Sumber</span>
+        <a href="/export/pdf" class="btn btn-sm btn-outline-secondary" target="_blank">📄 Export PDF</a>
+    </div>
+    <div class="card-body p-0" id="laporan-detail"><div class="text-center py-3 text-secondary">Memuat...</div></div>
+</div>
+
+<div class="card">
+    <div class="card-header py-1"><i class="bi bi-box"></i> Order / Minggu</div>
+    <div class="card-body p-0" id="mingguan"><div class="text-center py-3 text-secondary">Memuat...</div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadLaporan(){
+    try{
+        const [r,j]=await Promise.all([fetch('/api/ringkasan').then(r=>r.json()),fetch('/api/jurnal').then(r=>r.json())]);
+        document.getElementById('rekap').innerHTML=
+            '<div class="row g-1 text-center"><div class="col-6"><div class="card p-2 border-info"><div class="small">Pendapatan Hari</div><div class="fs-5 fw-bold text-info">Rp'+r.pendapatan_hari.toLocaleString('id-ID')+'</div></div></div>'+
+            '<div class="col-6"><div class="card p-2 border-warning"><div class="small">Minggu Ini</div><div class="fs-5 fw-bold text-warning">Rp'+r.pendapatan_minggu.toLocaleString('id-ID')+'</div></div></div>'+
+            '<div class="col-4"><div class="card p-2 border-success"><div class="small">Outlet</div><div class="fw-bold text-success">Rp'+r.saldo_outlet.toLocaleString('id-ID')+'</div></div></div>'+
+            '<div class="col-4"><div class="card p-2 border-primary"><div class="small">R.Laundry</div><div class="fw-bold text-primary">Rp'+r.saldo_rl.toLocaleString('id-ID')+'</div></div></div>'+
+            '<div class="col-4"><div class="card p-2 border-secondary"><div class="small">Umum</div><div class="fw-bold text-secondary">Rp'+r.saldo_umum.toLocaleString('id-ID')+'</div></div></div></div>';
+
+        const entries=j.entries;
+        const perSumber={};
+        entries.forEach(e=>{
+            if(!perSumber[e.sumber])perSumber[e.sumber]={masuk:0,keluar:0,count:0};
+            perSumber[e.sumber].masuk+=e.debit;
+            perSumber[e.sumber].keluar+=e.kredit;
+            perSumber[e.sumber].count++;
+        });
+        document.getElementById('laporan-detail').innerHTML='<div class="list-group list-group-flush">'+
+        Object.entries(perSumber).map(([s,v])=>{
+            const sBadge=s==='Outlet'?'badge-outlet':s==='R.Laundry'?'badge-rlaundry':'badge-umum';
+            return '<div class="list-group-item border-bottom border-secondary"><div class="d-flex justify-content-between">'+
+                '<div><span class="badge '+sBadge+'">'+s+'</span> <small>'+(v.count)+' transaksi</small></div>'+
+                '<div><span class="text-success">+Rp'+v.masuk.toLocaleString('id-ID')+'</span> <span class="text-danger">-Rp'+v.keluar.toLocaleString('id-ID')+'</span>'+
+                ' = <span class="fw-bold text-info">Rp'+(v.masuk-v.keluar).toLocaleString('id-ID')+'</span></div></div></div>';
+        }).join('')||'<div class="text-center py-3 text-secondary">Belum ada</div></div>';
+
+        // Weekly orders
+        const o=await fetch('/data/orderan').then(r=>r.json());
+        const weeks={};
+        o.forEach(r=>{
+            if(!r[1])return;
+            const parts=r[1].split(' ');
+            if(parts.length<3)return;
+            const monthMap={Jan:'01',Feb:'02',Mar:'03',Apr:'04',Mei:'05',Jun:'06',Jul:'07',Agu:'08',Sep:'09',Okt:'10',Nov:'11',Des:'12'};
+            const ym=parts[2]+'-'+monthMap[parts[1]];
+            if(!weeks[ym])weeks[ym]={order:0,revenue:0};
+            weeks[ym].order++;
+            weeks[ym].revenue+=parseInt(r[9])||0;
+        });
+        document.getElementById('mingguan').innerHTML='<div class="list-group list-group-flush">'+
+        Object.entries(weeks).slice(-8).reverse().map(([ym,v])=>{
+            return '<div class="list-group-item border-bottom border-secondary d-flex justify-content-between">'+
+                '<div><small>'+ym+'</small><br><small class="text-secondary">'+v.order+' order</small></div>'+
+                '<div class="fw-bold text-warning">Rp'+v.revenue.toLocaleString('id-ID')+'</div></div>';
+        }).join('')||'<div class="text-center py-3 text-secondary">Belum ada</div></div>';
+
+    }catch(e){document.getElementById('rekap').innerHTML='<div class="text-center py-3 text-danger">Gagal memuat</div>';}
+}
+loadLaporan();
+</script>
+{% endblock %}

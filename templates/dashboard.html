@@ -1,24 +1,39 @@
 {% extends "base.html" %}
 {% block title %}Home{% endblock %}
 {% block content %}
-<div class="row g-2 mb-3">
-    <div class="col-4"><div class="card text-center py-3 border-info"><i class="bi bi-cash-stack fs-3 text-info"></i><div class="fs-5 fw-bold text-info" id="h-pendapatan">—</div><small>Hari Ini</small></div></div>
-    <div class="col-4"><div class="card text-center py-3 border-warning"><i class="bi bi-box fs-3 text-warning"></i><div class="fs-5 fw-bold text-warning" id="h-order">—</div><small>Order</small></div></div>
-    <div class="col-4"><div class="card text-center py-3 border-success"><i class="bi bi-piggy-bank fs-3 text-success"></i><div class="fs-5 fw-bold text-success" id="h-saldo">—</div><small>Saldo</small></div></div>
+<div class="row g-1 mb-2">
+    <div class="col-6"><div class="card text-center py-2 border-info"><div class="fs-5 fw-bold text-info" id="h-hari">—</div><small>Hari Ini</small></div></div>
+    <div class="col-6"><div class="card text-center py-2 border-warning"><div class="fs-5 fw-bold text-warning" id="h-minggu">—</div><small>Minggu Ini</small></div></div>
 </div>
 
-<div class="card mb-3">
-    <div class="card-header d-flex justify-content-between">
+<div class="card mb-2">
+    <div class="card-header py-1 small"><i class="bi bi-wallet2"></i> Saldo per Sumber</div>
+    <div class="card-body py-1" id="saldo-sumber">
+        <div class="row text-center py-1">
+            <div class="col-4"><div class="text-info fw-bold"><i class="bi bi-shop"></i></div><div class="fs-6 fw-bold text-info" id="s-outlet">—</div><small>Outlet</small></div>
+            <div class="col-4"><div class="text-info fw-bold"><i class="bi bi-house"></i></div><div class="fs-6 fw-bold text-info" id="s-rlaundry">—</div><small>R.Laundry</small></div>
+            <div class="col-4"><div class="text-info fw-bold"><i class="bi bi-archive"></i></div><div class="fs-6 fw-bold text-info" id="s-umum">—</div><small>Umum</small></div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-1 mb-2">
+    <div class="col-4"><div class="card text-center py-2 border-success"><div class="fs-5 fw-bold text-success" id="h-order-aktif">—</div><small>Aktif</small></div></div>
+    <div class="col-4"><div class="card text-center py-2 border-primary"><div class="fs-5 fw-bold text-primary" id="h-order-hari">—</div><small>Hari Ini</small></div></div>
+    <div class="col-4"><div class="card text-center py-2 border-secondary"><div class="fs-5 fw-bold text-secondary" id="h-total-rev">—</div><small>Total</small></div></div>
+</div>
+
+<div class="card">
+    <div class="card-header py-1 small d-flex justify-content-between">
         <span><i class="bi bi-clock-history"></i> Order Terakhir</span>
+        <a href="/laporan" class="btn btn-sm btn-outline-info py-0">📊 Laporan</a>
     </div>
-    <div class="card-body p-0" id="home-orders">
-        <div class="text-center py-3 text-secondary"><div class="spinner-border spinner-border-sm"></div></div>
-    </div>
+    <div class="card-body p-0" id="home-orders"><div class="text-center py-3 text-secondary"><div class="spinner-border spinner-border-sm"></div></div></div>
 </div>
 
-<div class="row g-2">
-    <div class="col-6"><a href="/pos" class="btn btn-outline-info w-100 py-3"><i class="bi bi-plus-circle fs-4 d-block"></i>Order Baru</a></div>
-    <div class="col-6"><a href="/uang" class="btn btn-outline-warning w-100 py-3"><i class="bi bi-wallet2 fs-4 d-block"></i>Catat Uang</a></div>
+<div class="row g-1 mt-2">
+    <div class="col-6"><a href="/pos" class="btn btn-outline-info w-100 py-2"><i class="bi bi-plus-circle fs-5 d-block"></i>Order Baru</a></div>
+    <div class="col-6"><a href="/uang" class="btn btn-outline-warning w-100 py-2"><i class="bi bi-wallet2 fs-5 d-block"></i>Catat Uang</a></div>
 </div>
 {% endblock %}
 
@@ -26,17 +41,26 @@
 <script>
 async function loadHome(){
     try{
-        const [o,b]=await Promise.all([fetch('/data/orderan').then(r=>r.json()),fetch('/data/buku').then(r=>r.json())]);
-        const today=new Date().toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
-        const to=o.filter(r=>r[1]&&r[1].includes(today.split(' ')[0]));
-        document.getElementById('h-pendapatan').textContent='Rp'+to.reduce((s,r)=>s+(parseInt(r[8])||0),0).toLocaleString('id-ID');
-        document.getElementById('h-order').textContent=to.length;
-        const db=b.reduce((s,r)=>s+(parseInt(r[3])||0)-(parseInt(r[4])||0),0);
-        document.getElementById('h-saldo').textContent='Rp'+db.toLocaleString('id-ID');
+        const [o,r]=await Promise.all([fetch('/data/orderan').then(r=>r.json()),fetch('/api/ringkasan').then(r=>r.json())]);
+        document.getElementById('h-hari').textContent='Rp'+r.pendapatan_hari.toLocaleString('id-ID');
+        document.getElementById('h-minggu').textContent='Rp'+r.pendapatan_minggu.toLocaleString('id-ID');
+        document.getElementById('s-outlet').textContent='Rp'+r.saldo_outlet.toLocaleString('id-ID');
+        document.getElementById('s-rlaundry').textContent='Rp'+r.saldo_rl.toLocaleString('id-ID');
+        document.getElementById('s-umum').textContent='Rp'+r.saldo_umum.toLocaleString('id-ID');
+        document.getElementById('h-order-aktif').textContent=r.order_aktif;
+        document.getElementById('h-order-hari').textContent=r.order_hari;
+        document.getElementById('h-total-rev').textContent='Rp'+r.total_revenue.toLocaleString('id-ID');
 
-        const html=o.slice(-10).reverse().map(r=>'<div class="list-group-item border-bottom border-secondary"><div class="d-flex justify-content-between"><div><small class="text-secondary">#'+r[0]+'</small><div class="fw-medium">'+(r[3]||'—')+'</div><small>'+(r[5]||'')+' '+(r[6]||'0')+'kg</small></div><div class="text-end"><div class="fw-bold text-warning">Rp'+parseInt(r[8]).toLocaleString('id-ID')+'</div><span class="badge bg-'+(r[9]=='Selesai'?'success':r[9]=='Diambil'?'info':'warning')+'">'+(r[9]||'Proses')+'</span></div></div></div>'
-        ).join('')||'<div class="text-center py-3 text-secondary">Belum ada</div>';
-        document.getElementById('home-orders').innerHTML='<div class="list-group list-group-flush">'+html+'</div>';
+        document.getElementById('home-orders').innerHTML='<div class="list-group list-group-flush">'+
+        o.slice(-10).reverse().map(r=>{
+            const t=r[16]||'KG',jLabel=t==='M2'?r[6]+'m×'+r[7]+'m':t==='PCS'?r[6]+'pcs':r[6]+'kg',pref=(r[2]||'')[0]||'A';
+            const sBadge=pref==='A'?'badge-outlet':'badge-rlaundry',sLabel=pref==='A'?'Outlet':'R.Laundry';
+            return '<div class="list-group-item border-bottom border-secondary py-1"><div class="d-flex justify-content-between">'+
+                '<div><small class="text-secondary"><span class="badge '+sBadge+'">'+sLabel+'</span> '+(r[2]||'#'+r[0])+'</small>'+
+                '<div class="fw-medium">'+(r[3]||'—')+'</div><small>'+(r[5]||'')+' · '+jLabel+'</small></div>'+
+                '<div class="text-end"><div class="fw-bold text-warning">Rp'+parseInt(r[9]).toLocaleString('id-ID')+'</div>'+
+                '<span class="badge bg-'+{Selesai:'success',Diambil:'info',Proses:'warning'}[r[10]]+' ">'+(r[15]==='Ambil'?'🕐 ':'')+(r[10]||'Proses')+'</span></div></div></div>';
+        }).join('')||'<div class="text-center py-3 text-secondary">Belum ada</div></div>';
     }catch(e){document.getElementById('home-orders').innerHTML='<div class="text-center py-3 text-danger">Gagal</div>';}
 }
 loadHome();
