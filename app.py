@@ -11,7 +11,6 @@ app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24).hex())
 SHEET_ID = "1tz1uFlQi4KkIkqqnModjMj21qcvvxGf0KcuavD9U9bA"
 
 def get_gauth_info():
-    """Get Google auth from GAUTH_B64 env var (base64-encoded JSON)."""
     b64 = os.environ.get("GAUTH_B64")
     if not b64:
         raise ValueError("GAUTH_B64 env var not set")
@@ -29,9 +28,9 @@ def get_gc():
             try:
                 creds.refresh(Request())
             except RefreshError as e:
-                raise RuntimeError(f"Token expired permanently: {e}")
+                raise RuntimeError(f"Token expired: {e}")
         else:
-            raise RuntimeError("Credentials invalid and can't refresh")
+            raise RuntimeError("Credentials invalid")
     return gspread.authorize(creds)
 
 def sh():
@@ -57,7 +56,7 @@ def debug():
         gc = get_gc()
         ws = gc.open_by_key(SHEET_ID).worksheet("Dashboard")
         vals = ws.get_all_values()
-        return f"<h3>✅ OK</h3><p>Rows: {len(vals)}</p><pre>{json.dumps(vals[:3], indent=2)}</pre>"""
+        return f"<h3>✅ OK</h3><p>Rows: {len(vals)}</p><pre>{json.dumps(vals[:3], indent=2)}</pre>"
     except Exception as e:
         return f"<h3>❌ Error</h3><pre>{traceback.format_exc()}</pre>", 500
 
@@ -83,9 +82,22 @@ def pos():
 def kas():
     return render_template("kas.html")
 
+@app.route("/pelanggan")
+def pelanggan():
+    return render_template("pelanggan.html")
+
 @app.route("/buku")
 def buku():
     return render_template("buku.html")
+
+@app.route("/export/pdf")
+def export_pdf():
+    try:
+        vals = sh().worksheet("Orderan").get_all_values()[3:]
+        orders = [r for r in vals if r[0].strip().isdigit()]
+        return render_template("export.html", orders=orders)
+    except Exception as e:
+        return f"<h3>Error</h3><pre>{traceback.format_exc()}</pre>", 500
 
 # ─── API ────────────────────────────────────────
 
@@ -111,6 +123,33 @@ def add_order():
             data.get("catatan", "")
         ]], value_input_option="USER_ENTERED")
         return jsonify({"ok": True, "row": row, "total": total})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route("/api/order/<int:row>", methods=["PUT", "DELETE"])
+def edit_order(row):
+    try:
+        ws = sh().worksheet("Orderan")
+        if request.method == "DELETE":
+            ws.update(f"A{row}:L{row}", [[""] * 12], value_input_option="USER_ENTERED")
+            return jsonify({"ok": True})
+        data = request.get_json()
+        total = int(data.get("berat", 0)) * int(data.get("harga", 0))
+        ws.update(f"A{row}:L{row}", [[
+            str(row - 3),
+            data.get("tanggal", ""),
+            data.get("nota", ""),
+            data.get("pelanggan", ""),
+            data.get("no_hp", ""),
+            data.get("layanan", ""),
+            data.get("berat", "0"),
+            data.get("harga", "0"),
+            str(total),
+            data.get("status", "Proses"),
+            data.get("bayar", "Cash"),
+            data.get("catatan", "")
+        ]], value_input_option="USER_ENTERED")
+        return jsonify({"ok": True, "total": total})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -174,6 +213,29 @@ def data_kas(sheet):
     try:
         values = sh().worksheet(sheet).get_all_values()[3:]
         return jsonify([r for r in values if r[0].strip().isdigit()])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/data/pelanggan")
+def data_pelanggan():
+    try:
+        vals = sh().worksheet("Orderan").get_all_values()[3:]
+        orders = [r for r in vals if r[0].strip().isdigit()]
+        pelanggan = {}
+        for r in reversed(orders):
+            name = r[3].strip()
+            if not name: continue
+            if name not in pelanggan:
+                pelanggan[name] = {"nama": name, "hp": r[4], "total_order": 0,
+                    "total_berat": 0.0, "total_bayar": 0, "orders": []}
+            p = pelanggan[name]
+            p["total_order"] += 1
+            p["total_berat"] += float(r[6] or 0)
+            p["total_bayar"] += int(r[8] or 0)
+            if r[4] and not p["hp"]: p["hp"] = r[4]
+            p["orders"].append({"id": r[0], "tgl": r[1], "nota": r[2], "layanan": r[5],
+                "berat": r[6], "harga": r[7], "total": r[8], "status": r[9], "bayar": r[10]})
+        return jsonify(sorted(pelanggan.values(), key=lambda x: x["total_bayar"], reverse=True))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
