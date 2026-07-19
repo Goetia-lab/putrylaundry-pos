@@ -182,8 +182,9 @@ def setup_tipe():
     """One-time: set kolom Tipe di Pricelist berdasarkan nama layanan."""
     ws = sheet("Pricelist")
     try:
-        ws.update("E3", "Tipe", value_input_option="USER_ENTERED")
-    except: pass
+        ws.update("E3", [["Tipe"]], value_input_option="USER_ENTERED")
+    except:
+        pass
     data = ws.get_all_values()
     tipe_map = {
         "Cuci Kering": "KG", "Cuci Setrika": "KG", "Setrika Saja": "KG",
@@ -196,7 +197,7 @@ def setup_tipe():
     for i, r in enumerate(data[3:], start=4):
         if r[0] and r[0].strip().isdigit() and r[1].strip() in tipe_map:
             try:
-                ws.update(f"E{i}", tipe_map[r[1].strip()], value_input_option="USER_ENTERED")
+                ws.update(f"E{i}", [[tipe_map[r[1].strip()]]], value_input_option="USER_ENTERED")
                 updated += 1
             except Exception as e:
                 return jsonify({"ok": False, "error": str(e), "row": i}), 500
@@ -207,7 +208,8 @@ def health():
     try:
         gc()
         return jsonify({"status":"ok"})
-    except: return jsonify({"status":"error"}), 500
+    except:
+        return jsonify({"status":"error"}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
